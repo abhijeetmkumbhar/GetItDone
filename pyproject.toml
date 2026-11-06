@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "getitdone"
+# Version lives in src/getitdone/__init__.py only - no second copy to drift.
+dynamic = ["version"]
+description = "An offline-first project manager embedded in the Windows desktop."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "GetItDone contributors" }]
+keywords = ["task-management", "desktop-widget", "pyqt6", "productivity"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Scheduling",
+    "Typing :: Typed",
+]
+
+dependencies = ["PyQt6>=6.5.0"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+
+[project.gui-scripts]
+getitdone = "getitdone.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/abhijeetmkumbhar/GetItDone"
+
+[tool.setuptools.dynamic]
+version = { attr = "getitdone.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["getitdone*"]
+
+[tool.setuptools.package-data]
+# PEP 561 marker: tells type checkers the inline annotations are usable.
+getitdone = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Src layout: src/ on the path so import getitdone resolves to the source
+# tree instead of requiring an editable install first.
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "BLE", "SIM", "C4", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+show_error_codes = true
+# PyQt6 ships stubs that current mypy cannot parse, so the Qt layer is
+# excluded from the type gate. The headless core is fully checked.
+files = [
+    "src/getitdone/models.py",
+    "src/getitdone/storage.py",
+    "src/getitdone/service.py",
+]

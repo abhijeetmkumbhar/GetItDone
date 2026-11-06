@@ -1,0 +1,33 @@
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# --- Local application data ----------------------------------------------
+# Never commit user task data or generated demo data.
+tasks.json
+dev_tasks.json
+*.corrupt-*
+
+# --- Test / type-check caches --------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Dev scratch ----------------------------------------------------------
+.dev/
+# --- Tooling / editor configs --------------------------------------------
+# .continue/ holds agent configs WITH PLAINTEXT API KEYS. Never commit.
+.continue/
+
+# Share recommended extensions and workspace settings; ignore the rest.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
