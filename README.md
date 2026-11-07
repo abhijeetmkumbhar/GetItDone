@@ -32,9 +32,15 @@ visible the moment you log in — no window to open, no app to switch to.
 
 ## Requirements
 
-- Windows 10/11 (the widget uses Windows-specific window behavior)
+- Windows 10/11 (primary target), or Linux with X11/XWayland
 - Python 3.10+
 - PyQt6
+
+On Linux the widget uses `_NET_WM_WINDOW_TYPE_DESKTOP` to join the desktop
+layer, which needs an X11 session (XWayland under GNOME is fine). Native
+Wayland cannot position or layer a client window, so the widget degrades to an
+ordinary window there. Use `--no-desktop` to force the always-on-bottom
+fallback, or `--top` for an ordinary window.
 
 ## Install
 
@@ -52,7 +58,7 @@ python -m getitdone          # your saved data
 python -m getitdone --dev    # demo data in .dev/dev_tasks.json
 python -m getitdone --top    # ordinary window on top, for inspection
 \\n
-Tasks are stored in \%USERPROFILE%\\.getitdone\\tasks.json\.
+Tasks are stored in \%USERPROFILE%\\.getitdone\\tasks.json\\.
 
 ## Project layout
 
@@ -70,3 +76,4 @@ Tasks are stored in \%USERPROFILE%\\.getitdone\\tasks.json\.
 User data is never written inside the package: the primary location is
 \~/.getitdone/\, falling back to \%LOCALAPPDATA%\\GetItDone\\\ when the
 home directory is unwritable.
+

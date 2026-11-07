@@ -194,6 +194,24 @@ class TestStatusCycling:
 
 
 # --------------------------------------------------------------------------- #
+# Desktop layer (X11)
+# --------------------------------------------------------------------------- #
+class TestDesktopLayer:
+    def test_offscreen_platform_disables_the_desktop_layer(self, make_window):
+        """Only xcb can carry the EWMH window type, so headless must opt out."""
+        window = make_window()
+        assert window.desktop_layer is False
+        assert window.desktop_layer_applied is False
+
+    def test_opt_out_keeps_the_always_on_bottom_flags(self, make_window):
+        window = make_window(desktop_layer=False)
+        flags = window.windowFlags()
+        assert flags & Qt.WindowType.FramelessWindowHint
+        assert flags & Qt.WindowType.WindowStaysOnBottomHint
+        assert flags & Qt.WindowType.Tool
+
+
+# --------------------------------------------------------------------------- #
 # Painting
 # --------------------------------------------------------------------------- #
 class TestRendering:

@@ -10,11 +10,19 @@
 
 """The desktop widget window.
 
-Layering note: this is the *bottom-most window* approach (Phase 2, option A).
-``WindowStaysOnBottomHint`` keeps the widget under normal windows, but it does
-**not** survive Win+D ("Show Desktop"). Phase 4 can swap in Win32 ``WorkerW``
-parenting behind a setting without touching anything else here.
+Layering: two strategies, chosen by platform.
 
+* **X11 / XWayland** - the window is tagged ``_NET_WM_WINDOW_TYPE_DESKTOP``
+  (see :mod:`getitdone.ui.x11`), which puts it in the *desktop layer*: above the
+  wallpaper, below every normal window, and still visible after "Show Desktop".
+  This is the Linux counterpart of the Win32 ``WorkerW`` approach.
+* **Everything else** - ``WindowStaysOnBottomHint`` keeps the widget under
+  normal windows. It is only a hint: it does not survive Win+D, and the window
+  manager is free to ignore it.
+
+Both are bottom-of-the-stack by design, so the widget only receives clicks in
+screen areas no other window covers. ``--top`` swaps in an ordinary window for
+inspection and interaction.
 Layout: the widget covers the whole desktop area as a translucent dashboard.
 Stories are cards laid out in as many columns as the screen width allows, each
 story expandable inline.
@@ -60,6 +68,7 @@ class MainWindow(QWidget):
         workspace: Workspace,
         data_path: str | None = None,
         parent: QWidget | None = None,
+        desktop_layer: bool = True,
     ) -> None:
         super().__init__(parent)
         self.workspace = workspace
@@ -68,13 +77,23 @@ class MainWindow(QWidget):
         self._auto_expand_pending = True
         self._story_widgets: dict[str, StoryWidget] = {}
         self._columns = 0
+        self._desktop_layer_applied = False
+
+        # On X11/XWayland the desktop layer is requested through an EWMH window
+        # type rather than a Qt flag. ``WindowStaysOnBottomHint`` is deliberately
+        # dropped there: it only sets _NET_WM_STATE_BELOW, which fights the
+        # window manager for stacking and does not survive "Show Desktop".
+        self._desktop_layer = desktop_layer and QGuiApplication.platformName() == "xcb"
 
         self.setWindowTitle("GetItDone")
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnBottomHint
-            | Qt.WindowType.Tool
-        )
+        if self._desktop_layer:
+            self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        else:
+            self.setWindowFlags(
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowStaysOnBottomHint
+                | Qt.WindowType.Tool
+            )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
 
@@ -82,6 +101,20 @@ class MainWindow(QWidget):
         self._apply_geometry()
         self._watch_screen()
         self.refresh()
+
+        if self._desktop_layer:
+            self._apply_desktop_layer()
+
+    def _apply_desktop_layer(self) -> None:
+        """Ask the window manager to place the widget in the desktop layer.
+
+        ``winId()`` forces the native window to exist. The property has to be
+        written *before* the window is mapped, otherwise the window manager has
+        already decided which layer the window belongs to.
+        """
+        from .x11 import set_desktop_type
+
+        self._desktop_layer_applied = set_desktop_type(int(self.winId()))
 
     # -- construction ------------------------------------------------------- #
     def _build_ui(self) -> None:
@@ -176,7 +209,6 @@ class MainWindow(QWidget):
         self._clear_list()
         self._story_widgets.clear()
         self._columns = columns_for_width(self.width())
-
         stories = self.workspace.stories
         if not stories:
             hint = QLabel("No stories yet.\nClick “+ Add Story” to begin.")
@@ -216,7 +248,6 @@ class MainWindow(QWidget):
 
             target = column_layouts[index % self._columns]
             target.insertWidget(target.count() - 1, widget)  # before the stretch
-
         self._update_summary()
 
     def _clear_list(self) -> None:
@@ -269,6 +300,16 @@ class MainWindow(QWidget):
     @property
     def columns(self) -> int:
         return self._columns
+
+    @property
+    def desktop_layer(self) -> bool:
+        """True when the X11 desktop-layer window type is in use."""
+        return self._desktop_layer
+
+    @property
+    def desktop_layer_applied(self) -> bool:
+        """True when the EWMH window type was actually written to X11."""
+        return self._desktop_layer_applied
 
     @property
     def expanded_story_id(self) -> str | None:

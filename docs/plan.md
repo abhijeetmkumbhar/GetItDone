@@ -59,8 +59,13 @@ This implementation plan breaks down the development of **GetItDone** into seque
 - [ ] **Step 4.1: Finish `getitdone/__main__.py`**
   - Entry point exists (`python -m getitdone`, `--dev`, `--top`).
   - Remaining: single-instance lock, startup error dialog, graceful exit.
-- [ ] **Step 4.2: Win32 Desktop-Layer Embedding**
-  - Optional `WorkerW` parenting so the widget survives Win+D.
+- [ ] **Step 4.2: Desktop-Layer Embedding**
+  - Windows: optional `WorkerW` parenting so the widget survives Win+D. *(not started)*
+  - Linux/X11: **done** - `_NET_WM_WINDOW_TYPE_DESKTOP` via `ui/x11.py` puts the
+    widget in the desktop layer, where it survives "Show Desktop", is visible on
+    every workspace (`_NET_WM_STATE_STICKY`), and still accepts clicks.
+    Falls back to `WindowStaysOnBottomHint` off X11, or on request via
+    `--no-desktop`. Verified under GNOME 46 / XWayland.
 - [ ] **Step 4.3: Testing & Verification**
   - Expand the pytest suite alongside each Phase 3 feature.
   - Manual pass: auto-save, positioning, status cycling, focus behaviour.
@@ -68,3 +73,4 @@ This implementation plan breaks down the development of **GetItDone** into seque
   - GPL v3 license text and end-user documentation.
 - [ ] **Step 4.5: Packaging**
   - Build a distributable (PyInstaller or `pipx`), verify the `getitdone` command.
+
