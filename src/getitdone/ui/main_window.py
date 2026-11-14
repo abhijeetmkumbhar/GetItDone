@@ -86,16 +86,26 @@ class MainWindow(QWidget):
         self._desktop_layer = desktop_layer and QGuiApplication.platformName() == "xcb"
 
         self.setWindowTitle("GetItDone")
+
         if self._desktop_layer:
-            self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+            # Preferred: let Qt write the property at the correct moment.
+            self.setAttribute(Qt.WidgetAttribute.WA_X11NetWmWindowTypeDesktop)
+            self.setWindowFlags(
+                Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
+            )
         else:
             self.setWindowFlags(
                 Qt.WindowType.FramelessWindowHint
                 | Qt.WindowType.WindowStaysOnBottomHint
                 | Qt.WindowType.Tool
             )
+
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+
+        # Prevent the common translucent + frameless side-effect of becoming
+        # transparent-for-input.
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
 
         self._build_ui()
         self._apply_geometry()
@@ -103,6 +113,7 @@ class MainWindow(QWidget):
         self.refresh()
 
         if self._desktop_layer:
+            # Extra: force sticky + type while the window is still unmapped.
             self._apply_desktop_layer()
 
     def _apply_desktop_layer(self) -> None:
@@ -115,6 +126,16 @@ class MainWindow(QWidget):
         from .x11 import set_desktop_type
 
         self._desktop_layer_applied = set_desktop_type(int(self.winId()))
+
+    def _force_input_region(self) -> None:
+        """Force a full ShapeInput region so the translucent desktop window
+        actually receives mouse events."""
+        if not self._desktop_layer:
+            return
+        from .x11 import force_full_input_region
+
+        geo = self.geometry()
+        force_full_input_region(int(self.winId()), geo.width(), geo.height())
 
     # -- construction ------------------------------------------------------- #
     def _build_ui(self) -> None:
@@ -196,12 +217,29 @@ class MainWindow(QWidget):
         screen = QGuiApplication.primaryScreen()
         if screen is not None:
             self.setGeometry(screen.availableGeometry())
+            # Keep the input region correct after size changes
+            if self.isVisible():
+                self._force_input_region()
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt naming
         super().resizeEvent(event)
         # Width changed enough to fit a different number of columns.
         if columns_for_width(self.width()) != self._columns:
             self.refresh()
+        # Also keep input region in sync
+        if self._desktop_layer and self.isVisible():
+            self._force_input_region()
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt naming
+        super().showEvent(event)
+        if self._desktop_layer:
+            # A translucent, frameless X11 window can end up with an empty
+            # ShapeInput region and receive no mouse events. Re-assert the
+            # full region once the native window exists.
+            #
+            # Deliberately no setWindowFlags()/show() here: re-creating the
+            # native window from inside showEvent re-enters this handler.
+            self._force_input_region()
 
     # -- rendering ---------------------------------------------------------- #
     def refresh(self) -> None:

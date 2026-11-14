@@ -11,6 +11,7 @@ import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QPushButton
 
 from getitdone import storage
 from getitdone.models import (
@@ -202,6 +203,35 @@ class TestDesktopLayer:
         window = make_window()
         assert window.desktop_layer is False
         assert window.desktop_layer_applied is False
+
+    def test_x11_desktop_layer_remains_an_interactive_top_level_window(
+        self, make_window, monkeypatch
+    ):
+        from getitdone.ui import x11
+
+        monkeypatch.setattr(QGuiApplication, "platformName", lambda: "xcb")
+        monkeypatch.setattr(x11, "set_desktop_type", lambda _window_id: True)
+        # The offscreen QPA has no real X window, so shaping must not be
+        # attempted against winId().
+        monkeypatch.setattr(x11, "force_full_input_region", lambda _wid, _w, _h: True)
+
+        window = make_window()
+
+        assert window.desktop_layer is True
+        assert window.desktop_layer_applied is True
+        assert window.isWindow()
+        assert window.windowFlags() & Qt.WindowType.Window
+        assert window.windowFlags() & Qt.WindowType.FramelessWindowHint
+
+        requested = []
+        window.add_story_requested.connect(lambda: requested.append(True))
+        add_button = next(
+            button
+            for button in window.findChildren(QPushButton)
+            if button.text() == "+ Add Story"
+        )
+        _click(add_button)
+        assert requested == [True]
 
     def test_opt_out_keeps_the_always_on_bottom_flags(self, make_window):
         window = make_window(desktop_layer=False)
